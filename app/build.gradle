@@ -56,7 +56,7 @@ task sourceJar(type: Jar) {
 afterEvaluate {
     mavenPublishing {
         publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-        signAllPublications()
+        // signAllPublications()
         coordinates(
                 getGroupId(),
                 "mpv-android-lib",
