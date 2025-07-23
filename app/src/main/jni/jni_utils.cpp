@@ -54,7 +54,7 @@ void init_methods_cache(JNIEnv *env)
     mpv_MPVNode = FIND_CLASS("is/xyz/mpv/MPVNode");
 
     mpv_MPVNode_None = FIND_CLASS("is/xyz/mpv/MPVNode$None");
-    mpv_MPVNode_None_INSTANCE = env->GetStaticFieldID(mpv_MPVNode_Nil, "INSTANCE", "Lis/xyz/mpv/MPVNode$None;");
+    mpv_MPVNode_None_INSTANCE = env->GetStaticFieldID(mpv_MPVNode_None, "INSTANCE", "Lis/xyz/mpv/MPVNode$None;");
 
     mpv_MPVNode_StringNode = FIND_CLASS("is/xyz/mpv/MPVNode$StringNode");
     mpv_MPVNode_StringNode_init = env->GetMethodID(mpv_MPVNode_StringNode, "<init>", "(Ljava/lang/String;)V");
