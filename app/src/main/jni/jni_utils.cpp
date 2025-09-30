@@ -44,7 +44,7 @@ void init_methods_cache(JNIEnv *env)
     mpv_MPVLib_eventProperty_Sd = env->GetStaticMethodID(mpv_MPVLib, "eventProperty", "(Ljava/lang/String;D)V"); // eventProperty(String, double)
     mpv_MPVLib_eventProperty_SS = env->GetStaticMethodID(mpv_MPVLib, "eventProperty", "(Ljava/lang/String;Ljava/lang/String;)V"); // eventProperty(String, String)
     mpv_MPVLib_eventProperty_SN = env->GetStaticMethodID(mpv_MPVLib, "eventProperty", "(Ljava/lang/String;Lis/xyz/mpv/MPVNode;)V"); // eventProperty(String, MPVNode)
-    mpv_MPVLib_event = env->GetStaticMethodID(mpv_MPVLib, "event", "(I)V"); // event(int)
+    mpv_MPVLib_event = env->GetStaticMethodID(mpv_MPVLib, "event", "(ILis/xyz/mpv/MPVNode;)V"); // event(int, MPVNode)
     mpv_MPVLib_logMessage_SiS = env->GetStaticMethodID(mpv_MPVLib, "logMessage", "(Ljava/lang/String;ILjava/lang/String;)V"); // logMessage(String, int, String)
 
     // for array node creation, tbh, it might be better to use "List" instead but i wanted consitent naming

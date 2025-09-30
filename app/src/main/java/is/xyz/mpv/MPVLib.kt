@@ -180,9 +180,9 @@ object MPVLib {
     }
 
     @JvmStatic
-    fun event(eventId: Int) {
+    fun event(eventId: Int, data: MPVNode) {
         synchronized(observers) {
-            for (o in observers) o.event(eventId)
+            for (o in observers) o.event(eventId, data)
         }
         scope.launch { eventFlow.emit(eventId) }
     }
@@ -215,7 +215,7 @@ object MPVLib {
         fun eventProperty(property: String, value: String)
         fun eventProperty(property: String, value: Double)
         fun eventProperty(property: String, value: MPVNode)
-        fun event(eventId: Int)
+        fun event(eventId: Int, data: MPVNode)
     }
 
     interface LogObserver {
