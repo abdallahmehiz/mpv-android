@@ -14,6 +14,13 @@ if [ ! -d mbedtls ]; then
 		tar -xj -C mbedtls --strip-components=1
 fi
 
+# libxml2
+if [ ! -d libxml2 ]; then
+	mkdir libxml2
+	$WGET https://gitlab.gnome.org/GNOME/libxml2/-/archive/v$v_libxml2/libxml2-v$v_libxml2.tar.gz -O - | \
+		tar -xz -C libxml2 --strip-components=1
+fi
+
 # dav1d
 [ ! -d dav1d ] && git clone https://github.com/videolan/dav1d
 

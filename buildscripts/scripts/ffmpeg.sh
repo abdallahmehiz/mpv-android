@@ -28,19 +28,16 @@ args=(
 	--arch=${ndk_triple%%-*} --cpu=$cpu
 	--extra-cflags="-I$prefix_dir/include $cpuflags" --extra-ldflags="-L$prefix_dir/lib"
 
-	--enable-{jni,mediacodec,mbedtls,libdav1d} --disable-vulkan
+	--enable-{jni,mediacodec,mbedtls,libdav1d,libxml2} --disable-vulkan
 	--disable-static --enable-shared --enable-{gpl,version3}
 
 	# disable unneeded parts
 	--disable-{stripping,doc,programs}
 	# to keep the build lean we disable some feature quite aggressively:
-	# - muxers, encoders: mpv-android does not have any way to use these
 	# - devices: no practical use on Android
-	--disable-{muxers,encoders,devices}
+	--disable-{encoders,devices}
 	# useful to taking screenshots
 	--enable-encoder=mjpeg,png
-	# useful for the `dump-cache` command
-	--enable-muxer=mov,matroska,mpegts
 )
 ../configure "${args[@]}"
 
