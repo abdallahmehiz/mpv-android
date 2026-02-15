@@ -21,7 +21,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.*
 import kotlin.math.abs
+import androidx.core.view.isVisible
 
+@Suppress("unused")
 object Utils {
     private fun copyAssetFile(assetManager: AssetManager, filename: String, outFile: File): Boolean {
         var ins: InputStream? = null
@@ -116,7 +118,7 @@ object Utils {
 
         val candidates = mutableListOf<String>()
         // check all media dirs, there's usually one on each storage volume
-        context.externalMediaDirs.forEach {
+        context.getExternalFilesDirs(null).forEach {
             if (it != null)
                 candidates.add(it.absolutePath)
         }
@@ -195,10 +197,10 @@ object Utils {
     }
 
     fun visibleChildren(view: View): Int {
-        if (view is ViewGroup && view.visibility == View.VISIBLE) {
+        if (view is ViewGroup && view.isVisible) {
             return (0 until view.childCount).sumOf { visibleChildren(view.getChildAt(it)) }
         }
-        return if (view.visibility == View.VISIBLE) 1 else 0
+        return if (view.isVisible) 1 else 0
     }
 
     class AudioMetadata {
@@ -272,19 +274,14 @@ object Utils {
      * (if using an action bar).
      */
     fun handleInsetsAsPadding(view: View) {
-        data class Padding(val left: Int, val top: Int, val right: Int, val bottom: Int)
-        var originalPadding: Padding? = null
+        val orig = listOf(view.paddingLeft, view.paddingTop, view.paddingRight, view.paddingBottom)
         ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
             val i = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            // yes, really
-            if (originalPadding == null)
-                originalPadding = Padding(view.paddingLeft, view.paddingTop, view.paddingRight, view.paddingBottom)
-            val orig = originalPadding!!
             view.setPadding(
-                orig.left + i.left,
-                orig.top + i.top,
-                orig.right + i.right,
-                orig.bottom + i.bottom
+                orig[0] + i.left,
+                orig[1] + i.top,
+                orig[2] + i.right,
+                orig[3] + i.bottom
             )
             insets
         }
@@ -336,9 +333,9 @@ object Utils {
     )
 
     val VERSIONS = Versions(
-        mpv = "%MPV_VERSION%",
-        buildDate = "%DATE%",
-        libPlacebo = "%LIBPLACEBO_VERSION%",
-        ffmpeg = "%FFMPEG_VERSION%",
+        mpv = "v0.41.0-dev-gaa8221372",
+        buildDate = "Feb 15 2026 16:14:26",
+        libPlacebo = "v7.360.0",
+        ffmpeg = "6ee3e59",
     )
 }

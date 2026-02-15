@@ -57,4 +57,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: mpv-lib-${{ matrix.architecture }}
-          path: app/build/outputs/aar/app-release.aar
+          path: lib/build/outputs/aar/app-release.aar

@@ -62,7 +62,7 @@ Afterwards, build mpv-android and install the apk:
 
 ```sh
 ./buildall.sh -n
-adb install -r ../app/build/outputs/apk/default/debug/app-default-universal-debug.apk
+adb install -r ../lib/build/outputs/apk/default/debug/app-default-universal-debug.apk
 ```
 
 ## Using Android Studio
@@ -73,7 +73,7 @@ You should point Android Studio to existing SDK installation at `mpv-android/bui
 Then click "Open an existing Android Studio project" and select `mpv-android`.
 
 Note that if you build from Android Studio only the Java/Kotlin part will be built.
-If you make any changes to libraries (ffmpeg, mpv, ...) or mpv-android native code (`app/src/main/jni/*`), first rebuild native code with:
+If you make any changes to libraries (ffmpeg, mpv, ...) or mpv-android native code (`lib/src/main/jni/*`), first rebuild native code with:
 
 ```sh
 ./buildall.sh -n

@@ -8,50 +8,14 @@ import android.view.SurfaceView
 
 // Contains only the essential code needed to get a picture on the screen
 
-abstract class BaseMPVView(context: Context, attrs: AttributeSet?) : SurfaceView(context, attrs),
-    SurfaceHolder.Callback {
+abstract class BaseMPVView(
+    context: Context, attrs: AttributeSet?
+) : SurfaceView(context, attrs), SurfaceHolder.Callback {
 
-    // MPVLib instance for this view - each view has its own player instance
-    val mpv = MPV()
+    lateinit var mpv: MPV
+    lateinit var configDir: String
+    lateinit var cacheDir: String
 
-    /**
-     * Initialize libmpv.
-     *
-     * Call this once before the view is shown.
-     */
-    fun initialize(configDir: String, cacheDir: String) {
-        mpv.create(context)
-
-        /* set normal options (user-supplied config can override) */
-        mpv.setOptionString("config", "yes")
-        mpv.setOptionString("config-dir", configDir)
-        for (opt in arrayOf("gpu-shader-cache-dir", "icc-cache-dir"))
-            mpv.setOptionString(opt, cacheDir)
-        initOptions()
-
-        mpv.init()
-
-        /* set hardcoded options */
-        postInitOptions()
-        // could mess up VO init before surfaceCreated() is called
-        mpv.setOptionString("force-window", "no")
-        // need to idle at least once for playFile() logic to work
-        mpv.setOptionString("idle", "once")
-
-        holder.addCallback(this)
-        observeProperties()
-    }
-
-    /**
-     * Deinitialize libmpv.
-     *
-     * Call this once before the view is destroyed.
-     */
-    fun destroy() {
-        // Disable surface callbacks to avoid using uninitialized mpv state
-        holder.removeCallback(this)
-        mpv.destroy()
-    }
 
     protected abstract fun initOptions()
     protected abstract fun postInitOptions()
@@ -108,6 +72,34 @@ abstract class BaseMPVView(context: Context, attrs: AttributeSet?) : SurfaceView
         // FIXME: There could be a race condition here, because I don't think
         // setting a property will wait for VO deinit.
         mpv.detachSurface()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        mpv.create(context)
+
+        /* set normal options (user-supplied config can override) */
+        mpv.setOptionString("config", "yes")
+        mpv.setOptionString("config-dir", configDir)
+        for (opt in arrayOf("gpu-shader-cache-dir", "icc-cache-dir"))
+            mpv.setOptionString(opt, cacheDir)
+        initOptions()
+
+        /* set hardcoded options */
+        postInitOptions()
+        // could mess up VO init before surfaceCreated() is called
+        mpv.setOptionString("force-window", "no")
+        // need to idle at least once for playFile() logic to work
+        mpv.setOptionString("idle", "once")
+
+        holder.addCallback(this)
+        observeProperties()
+    }
+
+    override fun onDetachedFromWindow() {
+        holder.removeCallback(this)
+        mpv.destroy()
+        super.onDetachedFromWindow()
     }
 
     companion object {

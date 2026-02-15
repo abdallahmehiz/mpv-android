@@ -51,7 +51,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           set -e
-          mv app/build/outputs/aar/app-release.aar mpv-android-lib-${{ env.VERSION_TAG }}.aar
+          mv lib/build/outputs/aar/app-release.aar mpv-android-lib-${{ env.VERSION_TAG }}.aar
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2

@@ -43,9 +43,6 @@ class MPV {
         initSession()
     }
 
-    fun init() {
-        nativeInit()
-    }
 
     fun destroy() {
         destroySession()
@@ -440,5 +437,8 @@ class MPV {
         const val MPV_LOG_LEVEL_DEBUG: Int = 60
         const val MPV_LOG_LEVEL_TRACE: Int = 70
     }
-}
 
+    init {
+        nativeInit()
+    }
+}

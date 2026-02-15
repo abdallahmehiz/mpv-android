@@ -12,7 +12,7 @@ dd if=buildscripts/deps/mpv/_build$1/libmpv.so.p/common_version.c.o of=date.txt 
 DATE=$(cat date.txt)
 rm date.txt
 # write versions to Utils.kt
-sed -i "s/%MPV_VERSION%/$MPV_VERSION/g" app/src/main/java/is/xyz/mpv/Utils.kt
-sed -i "s/%LIBPLACEBO_VERSION%/$LIBPLACEBO_VERSION/g" app/src/main/java/is/xyz/mpv/Utils.kt
-sed -i "s/%FFMPEG_VERSION%/$FFMPEG_VERSION/g" app/src/main/java/is/xyz/mpv/Utils.kt
-sed -i "s/%DATE%/$DATE/g" app/src/main/java/is/xyz/mpv/Utils.kt
+sed -i "s/%MPV_VERSION%/$MPV_VERSION/g" lib/src/main/java/is/xyz/mpv/Utils.kt
+sed -i "s/%LIBPLACEBO_VERSION%/$LIBPLACEBO_VERSION/g" lib/src/main/java/is/xyz/mpv/Utils.kt
+sed -i "s/%FFMPEG_VERSION%/$FFMPEG_VERSION/g" lib/src/main/java/is/xyz/mpv/Utils.kt
+sed -i "s/%DATE%/$DATE/g" lib/src/main/java/is/xyz/mpv/Utils.kt

@@ -175,6 +175,6 @@ setup_prefix
 build $target
 
 [ "$target" == "mpv-android" ] && \
-	ls -lh ../app/build/outputs/aar/*.aar
+	ls -lh ../lib/build/outputs/aar/*.aar
 
 exit 0

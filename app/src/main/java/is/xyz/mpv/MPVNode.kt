@@ -3,6 +3,7 @@ package `is`.xyz.mpv
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
+@Suppress("unused")
 sealed class MPVNode {
     object None : MPVNode()
     data class StringNode(val value: String) : MPVNode()
@@ -58,11 +59,11 @@ sealed class MPVNode {
         if (this === other) return true
         if (other !is MPVNode) return false
 
-        return when {
-            this is ArrayNode && other is ArrayNode -> value.contentEquals(other.value)
-            this is ByteArrayNode && other is ByteArrayNode -> value.contentEquals(other.value)
+        return when (this) {
+            is ArrayNode if other is ArrayNode -> value.contentEquals(other.value)
+            is ByteArrayNode if other is ByteArrayNode -> value.contentEquals(other.value)
             else -> when (this) {
-                is None -> other is None
+                is None -> false
                 is StringNode -> other is StringNode && value == other.value
                 is BooleanNode -> other is BooleanNode && value == other.value
                 is IntNode -> other is IntNode && value == other.value
