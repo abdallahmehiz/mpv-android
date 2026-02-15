@@ -7,7 +7,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,20 +14,14 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlin.reflect.KMutableProperty
 import kotlin.reflect.KProperty
 
 @Suppress("unused")
-class MPV {
-    companion object {
-        init {
-            val libs = arrayOf("mpv", "player")
-            for (lib in libs) {
-                System.loadLibrary(lib)
-            }
-        }
-    }
-
+class MPV(
+    context: Context,
+    configDir: String = context.filesDir.resolve("mpv").toString(),
+    cacheDir: String = context.cacheDir.resolve("mpv").toString(),
+) {
     @Suppress("unused")
     private var nativeHandle: Long = 0
 
@@ -37,17 +30,6 @@ class MPV {
     external fun nativeCreate(appctx: Context)
     external fun nativeInit()
     external fun nativeDestroy()
-
-    fun create(appctx: Context) {
-        nativeCreate(appctx)
-        initSession()
-    }
-
-
-    fun destroy() {
-        destroySession()
-        nativeDestroy()
-    }
 
     external fun attachSurface(surface: Surface)
     external fun detachSurface()
@@ -438,7 +420,37 @@ class MPV {
         const val MPV_LOG_LEVEL_TRACE: Int = 70
     }
 
+    fun close() {
+        destroySession()
+        nativeDestroy()
+    }
+
+    fun setCacheDir(cacheDir: String) {
+        setOptionString("gpu-shader-cache-dir", cacheDir)
+        setOptionString("icc-cache-dir", cacheDir)
+    }
+
+    fun setConfigDir(configDir: String) {
+        setOptionString("config", "yes")
+        setOptionString("config-dir", configDir)
+    }
+
+    companion object {
+        var systemLibraryLoaded = false
+    }
+
     init {
+        if (!systemLibraryLoaded) {
+            System.loadLibrary("mpv")
+            System.loadLibrary("player")
+            systemLibraryLoaded = true
+        }
+        nativeCreate(context)
         nativeInit()
+        initSession()
+        setConfigDir(configDir)
+        setCacheDir(cacheDir)
+        setOptionString("idle", "once")
+        setPropertyBoolean("pause", true)
     }
 }
