@@ -26,7 +26,7 @@ fi
 
 # ffmpeg
 if [ ! -d ffmpeg ]; then
-	git clone --depth 1  https://github.com/FFmpeg/FFmpeg ffmpeg
+	git clone --branch n8.0 --depth 1 https://github.com/FFmpeg/FFmpeg ffmpeg
 	[ $IN_CI -eq 1 ] && git -C ffmpeg checkout $v_ci_ffmpeg
 fi
 
