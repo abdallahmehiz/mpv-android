@@ -32,6 +32,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     buildFeatures {
+        viewBinding = true
         compose = true
     }
 
@@ -48,6 +49,7 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.activity:activity-ktx:1.12.4")
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation(platform("androidx.compose:compose-bom:2026.02.00"))
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.activity:activity-compose")

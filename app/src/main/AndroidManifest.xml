@@ -9,7 +9,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Mpvandroid">
         <activity
-            android:name=".MainActivity"
+            android:name=".ViewsActivity"
+            android:label="mpv test"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".ComposeActivity"
+            android:label="mpv test compose"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

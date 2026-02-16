@@ -2,8 +2,11 @@ package `is`.xyz.mpv.test
 
 import android.app.Application
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -19,15 +22,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.recyclerview.widget.RecyclerView
 import `is`.xyz.mpv.BaseMPVView
 import `is`.xyz.mpv.MPV
-
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent { App() }
-    }
-}
+import `is`.xyz.mpv.test.databinding.ActivityMainBinding
+import `is`.xyz.mpv.test.databinding.ItemVideoBinding
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val players = mutableMapOf<Int, MPV>()
@@ -57,6 +56,62 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
+class ViewsActivity : ComponentActivity() {
+    val viewModel by viewModels<MainViewModel>()
+    lateinit var binding: ActivityMainBinding
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        binding.root.adapter = PlayerAdapter(viewModel)
+    }
+}
+
+class PlayerAdapter(
+    val viewModel: MainViewModel
+) : RecyclerView.Adapter<PlayerViewHolder>() {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlayerViewHolder {
+        val layoutInflater = LayoutInflater.from(parent.context)
+        val binding = ItemVideoBinding.inflate(layoutInflater, parent, false)
+        return PlayerViewHolder(binding, viewModel)
+    }
+
+    override fun onBindViewHolder(holder: PlayerViewHolder, position: Int) {
+        holder.bind(position)
+    }
+
+    override fun onViewRecycled(holder: PlayerViewHolder) {
+        holder.release(holder.bindingAdapterPosition)
+    }
+
+    override fun getItemCount(): Int = 100
+}
+
+class PlayerViewHolder(
+    val binding: ItemVideoBinding,
+    val viewModel: MainViewModel
+) : RecyclerView.ViewHolder(binding.root) {
+    fun bind(index: Int) {
+        val player = viewModel.getOrCreatePlayer(index)
+        binding.root.mpv = player
+    }
+
+    fun release(index: Int) {
+        binding.root.mpv = null
+        viewModel.releasePlayer(index)
+    }
+}
+
+
+// Compose version of the same thing
+
+class ComposeActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { App() }
+    }
+}
+
 @Composable
 fun App() {
     LazyColumn(
@@ -64,7 +119,7 @@ fun App() {
         contentPadding = WindowInsets.safeDrawing.asPaddingValues(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(100) { index ->
+        items(100, key = { it }) { index ->
             VideoItem(index)
         }
     }
@@ -73,7 +128,6 @@ fun App() {
 @Composable
 fun VideoItem(index: Int) {
     val viewModel = viewModel<MainViewModel>()
-    val mpv = viewModel.getOrCreatePlayer(index)
 
     DisposableEffect(index) {
         onDispose {
@@ -84,6 +138,7 @@ fun VideoItem(index: Int) {
     AndroidView(
         factory = { context ->
             BaseMPVView(context, null).also {
+                val mpv = viewModel.getOrCreatePlayer(index)
                 it.mpv = mpv
             }
         },
