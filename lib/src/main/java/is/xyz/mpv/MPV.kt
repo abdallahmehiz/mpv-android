@@ -77,7 +77,7 @@ class MPV(
     private val observedProperties = mutableMapOf<String, Int>()
 
     fun initSession() {
-        observedProperties.forEach { (property, format) ->
+        observedProperties.asIterable().forEach { (property, format) ->
             observeProperty(property, format)
         }
     }
