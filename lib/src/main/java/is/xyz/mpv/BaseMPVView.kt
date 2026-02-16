@@ -12,7 +12,7 @@ open class BaseMPVView(
     context: Context, attrs: AttributeSet?
 ) : SurfaceView(context, attrs), SurfaceHolder.Callback {
 
-    lateinit var mpv: MPV
+    var mpv: MPV? = null
     private var voInUse: String = "gpu"
 
     /**
@@ -21,16 +21,18 @@ open class BaseMPVView(
      */
     fun setVo(vo: String) {
         voInUse = vo
-        mpv.setOptionString("vo", vo)
+        mpv?.setOptionString("vo", vo)
     }
 
     // Surface callbacks
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        mpv.setPropertyString("android-surface-size", "${width}x${height}")
+        mpv?.setPropertyString("android-surface-size", "${width}x${height}")
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
+        val mpv = mpv
+        if (mpv?.isInitialized != true) return
         Log.w(TAG, "attaching surface")
         mpv.attachSurface(holder.surface)
         mpv.setOptionString("force-window", "yes")
@@ -38,6 +40,8 @@ open class BaseMPVView(
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
+        val mpv = mpv
+        if (mpv?.isInitialized != true) return
         Log.w(TAG, "detaching surface")
         mpv.setPropertyString("vo", "null")
         mpv.setPropertyString("force-window", "no")
