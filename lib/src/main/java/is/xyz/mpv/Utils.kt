@@ -337,9 +337,9 @@ object Utils {
     )
 
     val VERSIONS = Versions(
-        mpv = "v0.41.0-dev-gaa8221372",
-        buildDate = "Feb 15 2026 16:14:26",
-        libPlacebo = "v7.360.0",
-        ffmpeg = "6ee3e59",
+        mpv = "%MPV_VERSION%",
+        buildDate = "%DATE%",
+        libPlacebo = "%LIBPLACEBO_VERSION%",
+        ffmpeg = "%FFMPEG_VERSION%",
     )
 }
