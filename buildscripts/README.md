@@ -19,6 +19,11 @@ before running the script and the necessary SDK packages will still be installed
 
 A matching NDK version (inside the SDK) will be picked up automatically or downloaded and installed otherwise.
 
+The mpv source revision is pinned in `include/depinfo.sh`. `download.sh` applies
+the downstream patches in `patches/mpv` and every mpv build verifies that the
+checkout is at the pinned revision with the complete patch applied. Its nearest
+release tag is fetched with enough history to preserve mpv's version metadata.
+
 ## Build
 
 ```sh

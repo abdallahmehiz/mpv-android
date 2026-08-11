@@ -62,10 +62,7 @@ elif [ "$1" = "install" ]; then
 	IN_CI=1 ./include/download-sdk.sh
 
 	msg "Fetching mpv"
-	mkdir -p deps/mpv
-	$WGET https://github.com/mpv-player/mpv/archive/master.tar.gz -O master.tgz
-	tar -xzf master.tgz -C deps/mpv --strip-components=1
-	rm master.tgz
+	./include/download-mpv.sh
 
 	msg "Trying to fetch existing prefix"
 	mkdir -p prefix

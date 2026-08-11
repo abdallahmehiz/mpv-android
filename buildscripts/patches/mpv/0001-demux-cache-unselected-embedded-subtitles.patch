@@ -1,0 +1,337 @@
+diff --git a/DOCS/man/options.rst b/DOCS/man/options.rst
+index 43b4c5ae4c..1ae0ca1623 100644
+--- a/DOCS/man/options.rst
++++ b/DOCS/man/options.rst
+@@ -4243,6 +4243,24 @@ Demuxer
+     ``--cache-secs`` is used (i.e. when the stream appears to be a network
+     stream or the stream cache is enabled).
+ 
++``--demuxer-cache-unselected-subtitles=<seconds>``
++    Keep packets for unselected subtitle streams that are embedded in the same
++    demuxer as audio or video (default: 0, disabled). The value specifies how
++    much subtitle history to retain behind the playback position. This can make
++    switching embedded subtitle tracks avoid a demuxer refresh seek.
++
++    Subtitle-only demuxers, such as external subtitle files, are not affected.
++    Enabling this option increases demuxing work and memory use. If retained
++    packets do not cover the requested position, track selection falls back to
++    the normal refresh-seek behavior.
++
++``--demuxer-cache-unselected-subtitles-max-bytes=<bytesize>``
++    Limit the combined packet memory used by
++    ``--demuxer-cache-unselected-subtitles`` (default: 16 MiB). The limit is
++    shared across eligible embedded subtitle streams and cache ranges. If the
++    limit is too small for a stream, old packets are discarded and switching to
++    it may use the normal refresh-seek fallback.
++
+ ``--demuxer-thread=<yes|no>``
+     Run the demuxer in a separate thread, and let it prefetch a certain amount
+     of packets (default: yes). Having this enabled leads to smoother playback,
+diff --git a/demux/demux.c b/demux/demux.c
+index 3263f3f0c6..9aa827477f 100644
+--- a/demux/demux.c
++++ b/demux/demux.c
+@@ -130,6 +130,11 @@ const struct m_sub_options demux_conf = {
+         {"metadata-codepage", OPT_STRING(meta_cp)},
+         {"autocreate-playlist", OPT_CHOICE(autocreate_playlist,
+             {"no", 0}, {"filter", 1}, {"same", 2})},
++        {"demuxer-cache-unselected-subtitles",
++            OPT_DOUBLE(unselected_sub_cache_secs), M_RANGE(0, DBL_MAX)},
++        {"demuxer-cache-unselected-subtitles-max-bytes",
++            OPT_BYTE_SIZE(unselected_sub_cache_max_bytes),
++            M_RANGE(0, M_MAX_MEM_BYTES)},
+         {0}
+     },
+     .size = sizeof(struct demux_opts),
+@@ -137,6 +142,7 @@ const struct m_sub_options demux_conf = {
+         .enable_cache = -1, // auto
+         .max_bytes = 150 * 1024 * 1024,
+         .max_bytes_bw = 50 * 1024 * 1024,
++        .unselected_sub_cache_max_bytes = 16 * 1024 * 1024,
+         .donate_fw = true,
+         .min_secs = 1.0,
+         .min_secs_cache = 1000.0 * 60 * 60,
+@@ -466,6 +472,26 @@ static uint64_t get_forward_buffered_bytes(struct demux_stream *ds)
+     return ds->queue->tail_cum_pos - ds->reader_head->cum_pos;
+ }
+ 
++static bool can_cache_embedded_subtitle(struct demux_stream *ds)
++{
++    struct demux_internal *in = ds->in;
++
++    if (ds->type != STREAM_SUB || ds->sh->attached_picture ||
++        in->d_user->opts->unselected_sub_cache_secs <= 0 ||
++        in->d_user->opts->unselected_sub_cache_max_bytes <= 0)
++        return false;
++
++    // External subtitles use their own subtitle-only demuxer. Restrict this
++    // behavior to subtitle streams embedded alongside audio or video.
++    for (int n = 0; n < in->num_streams; n++) {
++        enum stream_type type = in->streams[n]->type;
++        if (type == STREAM_AUDIO || type == STREAM_VIDEO)
++            return true;
++    }
++
++    return false;
++}
++
+ #if 0
+ // very expensive check for redundant cached queue state
+ static void check_queue_consistency(struct demux_internal *in)
+@@ -751,6 +777,59 @@ static void clear_queue(struct demux_queue *queue)
+     queue->is_bof = false;
+ }
+ 
++static void prune_embedded_subtitle_cache(struct demux_stream *ds)
++{
++    struct demux_internal *in = ds->in;
++    if (!ds->queue || !can_cache_embedded_subtitle(ds) || !in->num_ranges)
++        return;
++
++    int cached_queues = 0;
++    for (int n = 0; n < in->num_streams; n++) {
++        struct demux_stream *other = in->streams[n]->ds;
++        if (can_cache_embedded_subtitle(other))
++            cached_queues += in->num_ranges;
++    }
++    uint64_t max_bytes = MPMAX(1,
++        in->d_user->opts->unselected_sub_cache_max_bytes /
++        MPMAX(1, cached_queues));
++
++    for (int n = 0; n < in->num_ranges; n++) {
++        struct demux_queue *queue = in->ranges[n]->streams[ds->index];
++
++        if (in->last_playback_pts != MP_NOPTS_VALUE) {
++            double cutoff = in->last_playback_pts -
++                            in->d_user->opts->unselected_sub_cache_secs;
++
++            // Keep one packet at or before the cutoff. It can be a cue which
++            // is still active at the beginning of the retained history window.
++            while (queue->head && queue->head != ds->reader_head &&
++                   queue->head->next) {
++                struct demux_packet *next = queue->head->next;
++                double next_ts = MP_PTS_OR_DEF(next->pts, next->dts);
++                if (next_ts == MP_NOPTS_VALUE || next_ts > cutoff)
++                    break;
++
++                double head_ts = MP_PTS_OR_DEF(queue->head->pts,
++                                                queue->head->dts);
++                if (head_ts != MP_NOPTS_VALUE)
++                    queue->last_pruned = MP_PTS_MAX(queue->last_pruned,
++                                                    head_ts);
++                remove_head_packet(queue);
++            }
++        }
++
++        while (queue->head && queue->head != ds->reader_head &&
++               queue->tail_cum_pos - queue->head->cum_pos > max_bytes)
++        {
++            double head_ts = MP_PTS_OR_DEF(queue->head->pts,
++                                            queue->head->dts);
++            if (head_ts != MP_NOPTS_VALUE)
++                queue->last_pruned = MP_PTS_MAX(queue->last_pruned, head_ts);
++            remove_head_packet(queue);
++        }
++    }
++}
++
+ static void clear_cached_range(struct demux_internal *in,
+                                struct demux_cached_range *range)
+ {
+@@ -912,7 +991,7 @@ static void update_stream_selection_state(struct demux_internal *in,
+     for (int n = 0; n < in->num_ranges; n++) {
+         struct demux_cached_range *range = in->ranges[n];
+ 
+-        if (!ds->selected)
++        if (!ds->selected && !can_cache_embedded_subtitle(ds))
+             clear_queue(range->streams[ds->index]);
+ 
+         update_seek_ranges(range);
+@@ -920,6 +999,8 @@ static void update_stream_selection_state(struct demux_internal *in,
+ 
+     free_empty_cached_ranges(in);
+ 
++    prune_embedded_subtitle_cache(ds);
++
+     wakeup_ds(ds);
+ }
+ 
+@@ -2020,7 +2101,10 @@ static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp)
+ 
+     struct demux_queue *queue = ds->queue;
+ 
+-    bool drop = !ds->selected || in->seeking || ds->sh->attached_picture;
++    bool cached_unselected_subtitle = !ds->selected &&
++                                      can_cache_embedded_subtitle(ds);
++    bool drop = (!ds->selected && !cached_unselected_subtitle) ||
++                in->seeking || ds->sh->attached_picture;
+ 
+     if (!drop) {
+         // If libavformat splits packets, some packets will have pos unset, so
+@@ -2051,7 +2135,8 @@ static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp)
+         return;
+     }
+ 
+-    record_packet(in, dp);
++    if (!cached_unselected_subtitle)
++        record_packet(in, dp);
+ 
+     if (in->cache && in->d_user->opts->disk_cache && !dp->is_wrapped_avframe) {
+         int64_t pos = demux_cache_write(in->cache, dp);
+@@ -2071,7 +2156,8 @@ static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp)
+ 
+     // (keep in mind that even if the reader went out of data, the queue is not
+     // necessarily empty due to the backbuffer)
+-    if (!ds->reader_head && (!ds->skip_to_keyframe || dp->keyframe)) {
++    if (!cached_unselected_subtitle && !ds->reader_head &&
++        (!ds->skip_to_keyframe || dp->keyframe)) {
+         ds->reader_head = dp;
+         ds->skip_to_keyframe = false;
+     }
+@@ -2114,6 +2200,9 @@ static void add_packet_locked(struct sh_stream *stream, demux_packet_t *dp)
+ 
+     adjust_seek_range_on_packet(ds, dp);
+ 
++    if (can_cache_embedded_subtitle(ds))
++        prune_embedded_subtitle_cache(ds);
++
+     // May need to reduce backward cache.
+     prune_old_packets(in);
+ 
+@@ -2325,6 +2414,9 @@ static void prune_old_packets(struct demux_internal *in)
+             struct demux_queue *queue = range->streams[n];
+             struct demux_stream *ds = queue->ds;
+ 
++            if (can_cache_embedded_subtitle(ds))
++                continue;
++
+             if (queue->head && queue->head != ds->reader_head) {
+                 struct demux_packet *dp = queue->head;
+                 double ts = queue->seek_start;
+@@ -3175,6 +3267,9 @@ void demux_update(demuxer_t *demuxer, double pts)
+ 
+     in->last_playback_pts = pts;
+ 
++    for (int n = 0; n < in->num_streams; n++)
++        prune_embedded_subtitle_cache(in->streams[n]->ds);
++
+     demuxer->events |= in->events;
+     in->events = 0;
+     if (demuxer->events & (DEMUX_EVENT_METADATA | DEMUX_EVENT_STREAMS))
+@@ -3749,8 +3844,10 @@ static void execute_cache_seek(struct demux_internal *in,
+         struct demux_queue *queue = range->streams[n];
+ 
+         struct demux_packet *target = find_seek_target(queue, pts, flags);
+-        ds->reader_head = target;
+-        ds->skip_to_keyframe = !target;
++        bool keep_unselected = !ds->selected &&
++                               can_cache_embedded_subtitle(ds);
++        ds->reader_head = keep_unselected ? NULL : target;
++        ds->skip_to_keyframe = !keep_unselected && !target;
+         if (ds->reader_head)
+             ds->base_ts = MP_PTS_OR_DEF(ds->reader_head->pts, ds->reader_head->dts);
+ 
+@@ -3952,6 +4049,18 @@ static void initiate_refresh_seek(struct demux_internal *in,
+ 
+             bool correct_pos = ds->queue->correct_pos;
+             bool correct_dts = ds->queue->correct_dts;
++            bool preserve_cached_subtitle = ds != stream &&
++                can_cache_embedded_subtitle(ds) && ds->queue->head &&
++                (correct_dts || correct_pos);
++
++            if (preserve_cached_subtitle) {
++                // The subtitle queue already spans the playback position.
++                // Keep it and discard duplicate packets until the demuxer
++                // reaches its previous tail again.
++                ds_clear_reader_queue_state(ds);
++                ds->refreshing = true;
++                continue;
++            }
+ 
+             // We need to re-read all packets anyway, so discard the buffered
+             // data. (In theory, we could keep the packets, and be able to use
+@@ -3994,6 +4103,28 @@ static void refresh_track(struct demux_internal *in, struct sh_stream *stream,
+ 
+     if (in->back_demuxing)
+         ds->back_seek_pos = ref_pts;
++
++    if (ds->type == STREAM_SUB && can_cache_embedded_subtitle(ds) &&
++        !in->seeking && in->demux_ts != MP_NOPTS_VALUE &&
++        in->demux_ts >= ref_pts)
++    {
++        struct demux_queue *queue = ds->queue;
++        struct demux_packet *target = find_seek_target(queue, ref_pts, 0);
++        double head_ts = queue->head
++            ? MP_PTS_OR_DEF(queue->head->pts, queue->head->dts)
++            : MP_NOPTS_VALUE;
++        double required_start = ref_pts - ds->sh->seek_preroll;
++        if (target && (queue->is_bof ||
++                       (head_ts != MP_NOPTS_VALUE &&
++                        head_ts <= required_start)))
++        {
++            ds->reader_head = target;
++            ds->skip_to_keyframe = false;
++            ds->base_ts = MP_PTS_OR_DEF(target->pts, target->dts);
++            wakeup_ds(ds);
++            return;
++        }
++    }
+     // Avoid refresh seek for video streams except when immediately after a seek
+     // to ensure a correct seek position.
+     bool avoid_refresh = false;
+@@ -4070,7 +4201,19 @@ bool demux_stream_is_selected(struct sh_stream *stream)
+         return false;
+     bool r = false;
+     mp_mutex_lock(&stream->ds->in->lock);
+-    r = stream->ds->selected;
++    r = stream->ds->selected || can_cache_embedded_subtitle(stream->ds);
++    mp_mutex_unlock(&stream->ds->in->lock);
++    return r;
++}
++
++bool demux_stream_is_cached_unselected(struct sh_stream *stream)
++{
++    if (!stream)
++        return false;
++    bool r = false;
++    mp_mutex_lock(&stream->ds->in->lock);
++    r = !stream->ds->selected &&
++        can_cache_embedded_subtitle(stream->ds);
+     mp_mutex_unlock(&stream->ds->in->lock);
+     return r;
+ }
+diff --git a/demux/demux.h b/demux/demux.h
+index 6f2f38c9f0..6326c969e7 100644
+--- a/demux/demux.h
++++ b/demux/demux.h
+@@ -87,6 +87,8 @@ struct demux_opts {
+     char *meta_cp;
+     bool force_retry_eof;
+     int autocreate_playlist;
++    double unselected_sub_cache_secs;
++    int64_t unselected_sub_cache_max_bytes;
+ };
+ 
+ #define SEEK_FACTOR   (1 << 1)      // argument is in range [0,1]
+@@ -297,6 +299,7 @@ int demux_read_packet_async(struct sh_stream *sh, struct demux_packet **out_pkt)
+ int demux_read_packet_async_until(struct sh_stream *sh, double min_pts,
+                                   struct demux_packet **out_pkt);
+ bool demux_stream_is_selected(struct sh_stream *stream);
++bool demux_stream_is_cached_unselected(struct sh_stream *stream);
+ void demux_set_stream_wakeup_cb(struct sh_stream *sh,
+                                 void (*cb)(void *ctx), void *ctx);
+ struct demux_packet *demux_read_any_packet(struct demuxer *demuxer);
+diff --git a/demux/demux_mkv.c b/demux/demux_mkv.c
+index 501d20e977..1d5a64bfbd 100644
+--- a/demux/demux_mkv.c
++++ b/demux/demux_mkv.c
+@@ -3018,7 +3018,8 @@ static int handle_block(demuxer_t *demuxer, struct block_info *block_info)
+     int64_t tc = block_info->timecode;
+     mkv_track_t *track = block_info->track;
+     struct sh_stream *stream = track->stream;
+-    bool use_this_block = tc >= mkv_d->skip_to_timecode;
++    bool cached_unselected = demux_stream_is_cached_unselected(stream);
++    bool use_this_block = tc >= mkv_d->skip_to_timecode || cached_unselected;
+ 
+     if (!demux_stream_is_selected(stream))
+         return 0;

@@ -16,6 +16,8 @@ v_fribidi=1.0.16
 v_freetype=2.14.1
 v_mbedtls=3.6.5
 v_libxml2=2.13.5
+v_mpv=76a5eba991733f41310912c79c60f6c565a77cc9
+v_mpv_base_tag=v0.41.0
 
 
 ## Dependency tree

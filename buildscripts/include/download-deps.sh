@@ -71,6 +71,6 @@ fi
 [ ! -d libplacebo ] && git clone --depth 1 --recursive https://github.com/haasn/libplacebo
 
 # mpv
-[ ! -d mpv ] && git clone --depth 1 https://github.com/mpv-player/mpv
+../include/download-mpv.sh
 
 cd ..

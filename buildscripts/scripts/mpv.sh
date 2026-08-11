@@ -15,6 +15,8 @@ fi
 
 unset CC CXX # meson wants these unset
 
+../../include/prepare-mpv.sh "$PWD"
+
 meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
 	--default-library shared \
 	-Diconv=disabled -Dlua=enabled \
