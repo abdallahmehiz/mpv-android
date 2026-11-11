@@ -1,49 +1,98 @@
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.android.library")
+    id("org.jetbrains.kotlin.multiplatform")
+    id("com.android.kotlin.multiplatform.library")
     id("com.vanniktech.maven.publish")
 }
-
-val abiCodes = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86" to 3, "x86_64" to 4)
-val universalBase = 8000
 
 version = "0.1.12"
 group = "io.github.abdallahmehiz"
 
-android {
-    namespace = "is.xyz.mpv"
-    compileSdk = 36
-    defaultConfig { minSdk = 21 }
+// libmpv's public headers, from the mpv checkout of buildscripts
+val mpvHeaders = rootProject.file("buildscripts/deps/mpv/include")
 
-    buildFeatures {
-        buildConfig = true
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    tasks.withType<KotlinCompile> {
-        compilerOptions.jvmTarget.set(JvmTarget.JVM_11)
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.CInteropProcess>().configureEach {
+    doFirst {
+        check(mpvHeaders.resolve("mpv/client.h").isFile) {
+            "libmpv headers not found in $mpvHeaders, run buildscripts/download.sh first"
+        }
     }
 }
 
-dependencies {
-    implementation("androidx.appcompat:appcompat:1.7.1")
+// ffmpeg's TLS (mbedtls) can't use the system trust store, so libmpv needs a CA bundle. Android ships
+// it as an asset, but Apple apps don't get resources from a klib: embed the same file as a string.
+val generateAppleCACert by tasks.registering {
+    val input = file("src/androidMain/assets/cacert.pem")
+    val outputDir = layout.buildDirectory.dir("generated/cacert/appleMain/kotlin")
+    inputs.file(input)
+    outputs.dir(outputDir)
+    doLast {
+        val quotes = "\"\"\""
+        // split up, string constants are limited to 64K
+        val chunks = input.readText().chunked(16_384).joinToString(",\n") { chunk ->
+            quotes + chunk.replace("$", "\${'$'}") + quotes
+        }
+        val file = outputDir.get().file("is/xyz/mpv/CACert.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(buildString {
+            appendLine("// Generated from ${input.name} by the generateAppleCACert task, do not edit.")
+            appendLine("package `is`.xyz.mpv")
+            appendLine()
+            appendLine("internal val CA_CERT: String = arrayOf(")
+            appendLine(chunks)
+            appendLine(").joinToString(\"\")")
+        })
+    }
 }
 
-tasks.register<Jar>("sourceJar") {
-    archiveClassifier.set("sources")
-    from(android.sourceSets["main"].java.srcDirs)
+kotlin {
+    android {
+        namespace = "is.xyz.mpv"
+        compileSdk = 36
+        minSdk = 21
+
+        // ships cacert.pem and subfont.ttf from src/androidMain/assets
+        androidResources { enable = true }
+
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_11) }
+    }
+
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64(),
+        iosX64(),
+    ).forEach { target ->
+        target.compilations.getByName("main").cinterops.create("mpv") {
+            definitionFile.set(project.file("src/nativeInterop/cinterop/mpv.def"))
+            includeDirs(mpvHeaders)
+        }
+    }
+
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+            implementation("org.jetbrains.kotlinx:atomicfu:0.27.0")
+        }
+        androidMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+            implementation("androidx.appcompat:appcompat:1.7.1")
+        }
+        appleMain {
+            kotlin.srcDir(generateAppleCACert)
+        }
+    }
 }
 
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-    signAllPublications()
+    // only Maven Central needs signatures (CI passes the key), local publishing works without one
+    if (providers.gradleProperty("signing.keyId").isPresent) signAllPublications()
     coordinates(
         group.toString(),
         "mpv-android-lib",
@@ -75,4 +124,3 @@ mavenPublishing {
         }
     }
 }
-

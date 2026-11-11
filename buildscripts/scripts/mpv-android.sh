@@ -10,7 +10,7 @@ MPV_ANDROID="$DIR/../.."
 if [ "$1" == "build" ]; then
 	true
 elif [ "$1" == "clean" ]; then
-	rm -rf $MPV_ANDROID/{app,.}/build $MPV_ANDROID/lib/src/main/{libs,obj}
+	rm -rf $MPV_ANDROID/{app,.}/build $MPV_ANDROID/lib/src/androidMain/{libs,obj}
 	exit 0
 else
 	exit 255
@@ -40,9 +40,9 @@ chmod +x $BUILD/scripts/write_versions.sh
 $BUILD/scripts/write_versions.sh $ndk_suffix
 
 PREFIX32=$prefix32 PREFIX64=$prefix64 PREFIX_X64=$prefix_x64 PREFIX_X86=$prefix_x86 \
-ndk-build -C lib/src/main -j$cores
+ndk-build -C lib/src/androidMain -j$cores
 
-targets=(assembleDebug)
+targets=(assembleDebug :lib:assembleAndroidMain)
 if [ -z "$DONT_BUILD_RELEASE" ]; then
 	targets+=(assembleRelease)
 	[ -n "$BUNDLE" ] && targets+=(bundleRelease)

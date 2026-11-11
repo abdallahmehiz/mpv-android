@@ -18,6 +18,12 @@ loadarch () {
 	unset CC CXX CPATH LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
 	unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
 
+	if [[ "$1" == ios-* ]]; then
+		loadarch_ios $1
+		return
+	fi
+	export target_os=android
+
 	local apilvl=21
 	# ndk_triple: what the toolchain actually is
 	# cc_triple: what Google pretends the toolchain is
@@ -58,6 +64,45 @@ loadarch () {
 	export RANLIB=llvm-ranlib
 }
 
+loadarch_ios () {
+	if [[ "$OSTYPE" != "darwin"* ]] || ! command -v xcrun >/dev/null; then
+		echo "Building for iOS requires macOS with Xcode (not supported in Docker)" >&2
+		exit 1
+	fi
+
+	local sdk minversion
+	if [ "$1" == "ios-arm64" ]; then
+		ios_cpu=arm64 sdk=iphoneos ios_subsystem=ios
+		minversion=-mios-version-min=$v_ios
+	elif [ "$1" == "ios-sim-arm64" ]; then
+		ios_cpu=arm64 sdk=iphonesimulator ios_subsystem=ios-simulator
+		minversion=-mios-simulator-version-min=$v_ios
+	elif [ "$1" == "ios-sim-x86_64" ]; then
+		ios_cpu=x86_64 sdk=iphonesimulator ios_subsystem=ios-simulator
+		minversion=-mios-simulator-version-min=$v_ios
+	else
+		echo "Invalid architecture" >&2
+		exit 1
+	fi
+	export target_os=ios
+	export ndk_suffix=-$1
+	export ndk_triple=${ios_cpu/arm64/aarch64}-apple-darwin
+	export prefix_dir="$PWD/prefix/$1"
+
+	export ios_cflags="-arch $ios_cpu -isysroot $(xcrun --sdk $sdk --show-sdk-path) $minversion"
+	export ios_cc=$(xcrun --sdk $sdk -f clang)
+	export CC="$ios_cc $ios_cflags"
+	export CXX="$(xcrun --sdk $sdk -f clang++) $ios_cflags"
+	export AR=$(xcrun --sdk $sdk -f ar)
+	export RANLIB=$(xcrun --sdk $sdk -f ranlib)
+}
+
+meson_list () {
+	local out=
+	for word in $1; do out+="'$word', "; done
+	echo "[${out%, }]"
+}
+
 setup_prefix () {
 	if [ ! -d "$prefix_dir" ]; then
 		mkdir -p "$prefix_dir"
@@ -74,6 +119,31 @@ setup_prefix () {
 		return 1
 	fi
 
+	local binaries host
+	if [ "$target_os" == "ios" ]; then
+		binaries="c = $(meson_list "$CC")
+cpp = $(meson_list "$CXX")
+objc = $(meson_list "$CC")
+objcpp = $(meson_list "$CXX")
+ar = '$AR'
+nm = '$(xcrun -f nm)'
+strip = '$(xcrun -f strip)'"
+		host="system = 'darwin'
+subsystem = '$ios_subsystem'
+kernel = 'xnu'
+cpu_family = '$cpu_family'
+cpu = '$ios_cpu'"
+	else
+		binaries="c = '$CC'
+cpp = '$CXX'
+ar = 'llvm-ar'
+nm = 'llvm-nm'
+strip = 'llvm-strip'"
+		host="system = 'android'
+cpu_family = '$cpu_family'
+cpu = '${CC%%-*}'"
+	fi
+
 	# meson wants to be spoonfed this file, so create it ahead of time
 	# also define: release build, static libs and no source downloads at runtime(!!!)
 	cat >"$prefix_dir/crossfile.tmp" <<CROSSFILE
@@ -83,17 +153,11 @@ default_library = 'static'
 wrap_mode = 'nodownload'
 prefix = '/usr/local'
 [binaries]
-c = '$CC'
-cpp = '$CXX'
-ar = 'llvm-ar'
-nm = 'llvm-nm'
-strip = 'llvm-strip'
+$binaries
 pkgconfig = 'pkg-config'
 pkg-config = 'pkg-config'
 [host_machine]
-system = 'android'
-cpu_family = '$cpu_family'
-cpu = '${CC%%-*}'
+$host
 endian = 'little'
 CROSSFILE
 	# also avoid rewriting it needlessly
@@ -137,7 +201,8 @@ usage () {
 		"-n             Do not build dependencies" \
 		"--clean        Clean build dirs before compiling" \
 		"--gcc          Use gcc compiler (unsupported!)" \
-		"--arch <arch>  Build for specified architecture (default: $arch; supported: armv7l, arm64, x86, x86_64)"
+		"--arch <arch>  Build for specified architecture (default: $arch; supported: armv7l, arm64, x86, x86_64" \
+		"               and for iOS (target mpv): ios-arm64, ios-sim-arm64, ios-sim-x86_64)"
 	exit 0
 }
 

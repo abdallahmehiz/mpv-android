@@ -1,0 +1,7 @@
+# Bindings for the libmpv client and render API. The headers are taken from the mpv checkout of
+# buildscripts (see build.gradle.kts), so they always match the libmpv the app links.
+package = is.xyz.mpv.libmpv
+headers = mpv/client.h mpv/render.h mpv/render_gl.h
+headerFilter = mpv/*
+nonStrictEnums = mpv_error mpv_format mpv_event_id mpv_log_level mpv_end_file_reason \
+    mpv_render_param_type mpv_render_update_flag mpv_render_frame_info_flag

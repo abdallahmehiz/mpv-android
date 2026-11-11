@@ -15,8 +15,12 @@ fi
 
 $0 clean # separate building not supported, always clean
 
+# libmpv is linked statically on iOS
+shared=--enable-shared
+[ "$target_os" == "ios" ] && shared=--disable-shared
+
 ./configure \
-	--host=$ndk_triple \
+	--host=$ndk_triple $shared \
 	--without-python \
 	--without-iconv
 make -j$cores

@@ -38,6 +38,8 @@ To do this run one (or more) of these commands **before** ./buildall.sh:
 ./buildall.sh --arch x86_64 mpv
 ```
 
+On iOS, `system()` is unavailable, so Lua is built with it stubbed out to always fail: Lua and mpv's scripts work normally, but `os.execute()` never runs anything and just returns failure. Running external programs isn't possible on iOS either way, so scripts that rely on them (e.g. `ytdl_hook` with youtube-dl) won't work there.
+
 # Developing
 
 ## Getting logs

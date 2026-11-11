@@ -8,6 +8,7 @@ v_ndk=r29
 v_ndk_n=29.0.14206865
 v_sdk_platform=35
 v_sdk_build_tools=35.0.0
+v_ios=15.0
 
 v_lua=5.2.4
 v_unibreak=6.1

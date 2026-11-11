@@ -22,6 +22,11 @@ mycflags=(
 	# force fallback as ftello/fseeko are not defined [src/liolib.c]
 	-Dlua_fseek
 )
+# system() is unavailable on iOS [src/loslib.c], replace it after stdlib.h declared it
+if [ "$target_os" == "ios" ]; then
+	printf '#include <stdlib.h>\n#define system(cmd) (-1)\n' >ios_compat.h
+	mycflags+=(-include "$PWD/ios_compat.h")
+fi
 
 # LUA_T= and LUAC_T= to disable building lua & luac
 # -Dgetlocaledecpoint()=('.') fixes bionic missing decimal_point in localeconv

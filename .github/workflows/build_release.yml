@@ -42,6 +42,35 @@ jobs:
           ./buildall.sh
         env:
           GRADLE_OPTS: -Xmx4G
+
+      # the Apple targets can only be built on macOS, so publishing happens there
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-native
+          path: |
+            lib/src/androidMain/libs/
+            lib/src/androidMain/kotlin/is/xyz/mpv/Utils.kt
+            lib/build/outputs/aar/lib.aar
+
+  publish:
+    needs: build
+    runs-on: macos-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-native
+          path: lib/
+
       - name: Get tag name
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -51,7 +80,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           set -e
-          mv lib/build/outputs/aar/app-release.aar mpv-android-lib-${{ env.VERSION_TAG }}.aar
+          mv lib/build/outputs/aar/lib.aar mpv-android-lib-${{ env.VERSION_TAG }}.aar
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2

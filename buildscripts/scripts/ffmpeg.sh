@@ -22,14 +22,32 @@ cpu=armv7-a
 cpuflags=
 [[ "$ndk_triple" == "arm"* ]] && cpuflags="$cpuflags -mfpu=neon -mcpu=cortex-a8"
 
-args=(
-	--target-os=android --enable-cross-compile
-	--cross-prefix=$ndk_triple- --cc=$CC --pkg-config=pkg-config --nm=llvm-nm
-	--arch=${ndk_triple%%-*} --cpu=$cpu
-	--extra-cflags="-I$prefix_dir/include $cpuflags" --extra-ldflags="-L$prefix_dir/lib"
+if [ "$target_os" == "ios" ]; then
+	platform_args=(
+		--target-os=darwin --enable-cross-compile
+		--cc="$ios_cc" --pkg-config=pkg-config
+		--arch=${ndk_triple%%-*} --cpu=$cpu
+		--extra-cflags="-I$prefix_dir/include $ios_cflags" --extra-ldflags="-L$prefix_dir/lib $ios_cflags"
 
-	--enable-{jni,mediacodec,mbedtls,libdav1d,libxml2} --disable-vulkan
-	--disable-static --enable-shared --enable-{gpl,version3}
+		--enable-{videotoolbox,audiotoolbox} --disable-securetransport
+		--enable-static --disable-shared
+	)
+else
+	platform_args=(
+		--target-os=android --enable-cross-compile
+		--cross-prefix=$ndk_triple- --cc=$CC --pkg-config=pkg-config --nm=llvm-nm
+		--arch=${ndk_triple%%-*} --cpu=$cpu
+		--extra-cflags="-I$prefix_dir/include $cpuflags" --extra-ldflags="-L$prefix_dir/lib"
+
+		--enable-{jni,mediacodec}
+		--disable-static --enable-shared
+	)
+fi
+
+args=(
+	"${platform_args[@]}"
+	--enable-{mbedtls,libdav1d,libxml2} --disable-vulkan
+	--enable-{gpl,version3}
 
 	# disable unneeded parts
 	--disable-{stripping,doc,programs}

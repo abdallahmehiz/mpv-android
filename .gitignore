@@ -9,3 +9,5 @@ obj
 build
 local.properties
 *~
+.kotlin
+.DS_Store

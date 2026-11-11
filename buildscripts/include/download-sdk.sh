@@ -38,7 +38,7 @@ elif [ "$os" == "mac" ]; then
 		fi
 		brew install \
 			automake autoconf libtool pkg-config \
-			coreutils gnu-sed wget meson ninja
+			coreutils gnu-sed wget meson ninja nasm
 	fi
 	if ! javac -version &>/dev/null; then
 		echo "Error: missing Java Development Kit. Install it manually."
