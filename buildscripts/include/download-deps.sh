@@ -75,6 +75,13 @@ fi
 # libplacebo
 [ ! -d libplacebo ] && git clone --depth 1 --recursive https://github.com/haasn/libplacebo
 
+# nghttp2 (HTTP/2 support for curl)
+if [ ! -d nghttp2 ]; then
+	mkdir nghttp2
+	$WGET https://github.com/nghttp2/nghttp2/releases/download/v$v_nghttp2/nghttp2-$v_nghttp2.tar.xz -O - | \
+		tar -xJ -C nghttp2 --strip-components=1
+fi
+
 # curl
 if [ ! -d curl ]; then
 	mkdir curl

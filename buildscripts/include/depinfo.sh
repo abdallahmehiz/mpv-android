@@ -15,6 +15,7 @@ v_unibreak=8.0
 v_harfbuzz=15.0.0
 v_fribidi=1.0.17
 v_freetype=2.15.0
+v_nghttp2=1.70.0
 v_mbedtls=3.6.7
 v_libxml2=2.15.4
 v_fontconfig=2.18.3
@@ -36,7 +37,8 @@ dep_unibreak=()
 dep_libass=(freetype2 fontconfig fribidi harfbuzz unibreak)
 dep_lua=()
 dep_libplacebo=()
-dep_curl=(mbedtls)
+dep_nghttp2=()
+dep_curl=(mbedtls nghttp2)
 dep_rubberband=()
 dep_mpv=(ffmpeg libass lua libplacebo curl rubberband)
 dep_mpv_android=(mpv)
@@ -48,4 +50,4 @@ dep_mpv_android=(mpv)
 v_ci_ffmpeg=n9.0.2
 
 # filename used to uniquely identify a build prefix
-ci_tarball="prefix-n${v_ndk}-l${v_lua}-u${v_unibreak}-h${v_harfbuzz}-fr${v_fribidi}-ft${v_freetype}-x${v_libxml2}-fo${v_fontconfig}-m${v_mbedtls}-c${v_curl}-rb${v_rubberband}-ff${v_ci_ffmpeg}.tgz"
+ci_tarball="prefix-n${v_ndk}-l${v_lua}-u${v_unibreak}-h${v_harfbuzz}-fr${v_fribidi}-ft${v_freetype}-x${v_libxml2}-fo${v_fontconfig}-m${v_mbedtls}-n${v_nghttp2}-c${v_curl}-rb${v_rubberband}-ff${v_ci_ffmpeg}.tgz"
