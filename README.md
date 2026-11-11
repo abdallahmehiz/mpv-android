@@ -73,7 +73,8 @@ val node: MPVNode? = mpv.getPropertyNode("track-list")
 mpv.setPropertyNode("chapter-list", myCustomChaptersList)
 
 // observe as kotlin flows
-val pauseState: StateFlow<Boolean?> = mpv.propFlow["pause"]
+val pauseState: StateFlow<Boolean?> = mpv.propFlow("pause")
+val volume: StateFlow<Int> = mpv.propFlow("volume", default = 100)
 
 // cleanup
 mpv.detachSurface()

@@ -3,9 +3,7 @@ package `is`.xyz.mpv
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.Surface
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlin.reflect.KProperty
+import kotlinx.coroutines.flow.SharedFlow
 
 @Suppress("unused")
 actual class MPV(
@@ -25,7 +23,7 @@ actual class MPV(
     external fun attachSurface(surface: Surface)
     actual external fun detachSurface()
 
-    actual external fun command(vararg cmd: String)
+    actual external fun command(vararg cmd: String): Int
     actual external fun commandNode(vararg cmd: String): MPVNode?
 
     actual external fun setOptionString(name: String, value: String): Int
@@ -33,77 +31,36 @@ actual class MPV(
     external fun grabThumbnail(dimension: Int): Bitmap?
 
     actual external fun getPropertyInt(property: String): Int?
-    actual external fun setPropertyInt(property: String, value: Int)
+    actual external fun setPropertyInt(property: String, value: Int): Int
     actual external fun getPropertyDouble(property: String): Double?
-    actual external fun setPropertyDouble(property: String, value: Double)
+    actual external fun setPropertyDouble(property: String, value: Double): Int
     actual external fun getPropertyBoolean(property: String): Boolean?
-    actual external fun setPropertyBoolean(property: String, value: Boolean)
+    actual external fun setPropertyBoolean(property: String, value: Boolean): Int
     actual external fun getPropertyString(property: String): String?
-    actual external fun setPropertyString(property: String, value: String)
+    actual external fun setPropertyString(property: String, value: String): Int
     actual external fun getPropertyNode(property: String): MPVNode?
-    actual external fun setPropertyNode(property: String, node: MPVNode)
+    actual external fun setPropertyNode(property: String, node: MPVNode): Int
 
     actual fun getPropertyFloat(property: String) = getPropertyDouble(property)?.toFloat()
     actual fun setPropertyFloat(property: String, value: Float) =
         setPropertyDouble(property, value.toDouble())
 
-    actual fun getPropertyLong(property: String) = getPropertyInt(property)?.toLong()
-    actual fun setPropertyLong(property: String, value: Long) = setPropertyInt(property, value.toInt())
+    actual external fun getPropertyLong(property: String): Long?
+    actual external fun setPropertyLong(property: String, value: Long): Int
 
-    actual external fun observeProperty(property: String, format: Int)
+    actual external fun observeProperty(property: String, format: Int): Int
 
-    private val session = MPVSession(this)
+    actual external fun errorString(error: Int): String
+
+    internal actual val session = MPVSession(this)
 
     actual fun initSession() = session.initSession()
 
     actual fun destroySession() = session.destroySession()
 
-    actual val prop = PropertyAccessor()
-    actual val propFlow = PropertyFlowAccessor()
-
-    actual inner class PropertyAccessor {
-        actual inline operator fun <reified T> get(name: String): T? =
-            if (isInitialized) this@MPV.getTypedProperty(name, T::class) as T? else null
-
-        actual inline operator fun <reified T> set(name: String, value: T) {
-            if (isInitialized) this@MPV.setTypedProperty(name, T::class, value)
-        }
-    }
-
-    actual inner class PropertyDelegate<T> actual constructor(
-        private val name: String,
-        private val getter: (String) -> T?,
-        private val setter: (String, T) -> Unit
-    ) {
-        actual operator fun getValue(thisRef: Any?, property: KProperty<*>): T? =
-            if (isInitialized) getter(name) else null
-
-        actual operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T?) {
-            if (isInitialized && value != null) setter(name, value)
-        }
-    }
-
-    actual inline fun <reified T> prop(name: String): PropertyDelegate<T> =
-        typedPropertyDelegate(name, T::class) as PropertyDelegate<T>
-
-    actual inline fun <reified T> prop(name: String, value: T) = setTypedProperty(name, T::class, value)
-
-    actual inline fun <reified T> propFlow(name: String): StateFlow<T?> = propFlow[name]
-
-    actual inner class PropertyFlowAccessor {
-        actual inline operator fun <reified T> get(name: String): StateFlow<T?> =
-            typedFlow(name, T::class) as StateFlow<T?>
-
-        actual fun getIntFlow(name: String) = session.getIntFlow(name)
-        actual fun getLongFlow(name: String) = session.getLongFlow(name)
-        actual fun getFloatFlow(name: String) = session.getFloatFlow(name)
-        actual fun getDoubleFlow(name: String) = session.getDoubleFlow(name)
-        actual fun getBooleanFlow(name: String) = session.getBooleanFlow(name)
-        actual fun getStringFlow(name: String) = session.getStringFlow(name)
-        actual fun getNodeFlow(name: String) = session.getNodeFlow(name)
-    }
-
-    actual val logFlow: MutableSharedFlow<Triple<String, Int, String>> get() = session.logFlow
+    actual val logFlow: SharedFlow<Triple<String, Int, String>> get() = session.logFlow
+    actual val eventFlow: SharedFlow<Pair<Int, MPVNode>> get() = session.eventFlow
+    actual val eventPropertyFlow: SharedFlow<String> get() = session.eventPropertyFlow
 
     actual fun addObserver(o: EventObserver) = session.addObserver(o)
 
@@ -203,8 +160,9 @@ actual class MPV(
     }
 
     actual fun close() {
-        destroySession()
+        // event thread first, it could still be setting flows
         nativeDestroy()
+        destroySession()
     }
 
     actual fun setCacheDir(cacheDir: String) {

@@ -3,6 +3,7 @@
 package `is`.xyz.mpv
 
 import `is`.xyz.mpv.libmpv.mpv_create
+import `is`.xyz.mpv.libmpv.mpv_error_string
 import `is`.xyz.mpv.libmpv.mpv_initialize
 import `is`.xyz.mpv.libmpv.mpv_observe_property
 import `is`.xyz.mpv.libmpv.mpv_request_log_messages
@@ -22,10 +23,10 @@ import kotlinx.cinterop.objcPtr
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.staticCFunction
+import kotlinx.cinterop.toKString
 import kotlinx.cinterop.toLong
 import kotlinx.cinterop.value
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import platform.Foundation.NSApplicationSupportDirectory
 import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSFileManager
@@ -48,7 +49,6 @@ import platform.posix.pthread_t
 import platform.posix.pthread_tVar
 import platform.posix.setlocale
 import kotlin.concurrent.Volatile
-import kotlin.reflect.KProperty
 
 /**
  * libmpv on iOS/tvOS.
@@ -167,65 +167,23 @@ actual class MPV(
     actual fun setPropertyFloat(property: String, value: Float) =
         setPropertyDouble(property, value.toDouble())
 
-    actual fun getPropertyLong(property: String) = getPropertyInt(property)?.toLong()
-    actual fun setPropertyLong(property: String, value: Long) = setPropertyInt(property, value.toInt())
+    actual fun getPropertyLong(property: String): Long? = handle.getLong(property)
+    actual fun setPropertyLong(property: String, value: Long) = handle.setLong(property, value)
 
-    actual fun observeProperty(property: String, format: Int) {
+    actual fun observeProperty(property: String, format: Int): Int =
         mpv_observe_property(handle, 0u, property, format.toUInt())
-    }
 
-    private val session = MPVSession(this)
+    actual fun errorString(error: Int): String = mpv_error_string(error)?.toKString().orEmpty()
+
+    internal actual val session = MPVSession(this)
 
     actual fun initSession() = session.initSession()
 
     actual fun destroySession() = session.destroySession()
 
-    actual val prop = PropertyAccessor()
-    actual val propFlow = PropertyFlowAccessor()
-
-    actual inner class PropertyAccessor {
-        actual inline operator fun <reified T> get(name: String): T? =
-            if (isInitialized) this@MPV.getTypedProperty(name, T::class) as T? else null
-
-        actual inline operator fun <reified T> set(name: String, value: T) {
-            if (isInitialized) this@MPV.setTypedProperty(name, T::class, value)
-        }
-    }
-
-    actual inner class PropertyDelegate<T> actual constructor(
-        private val name: String,
-        private val getter: (String) -> T?,
-        private val setter: (String, T) -> Unit
-    ) {
-        actual operator fun getValue(thisRef: Any?, property: KProperty<*>): T? =
-            if (isInitialized) getter(name) else null
-
-        actual operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T?) {
-            if (isInitialized && value != null) setter(name, value)
-        }
-    }
-
-    actual inline fun <reified T> prop(name: String): PropertyDelegate<T> =
-        typedPropertyDelegate(name, T::class) as PropertyDelegate<T>
-
-    actual inline fun <reified T> prop(name: String, value: T) = setTypedProperty(name, T::class, value)
-
-    actual inline fun <reified T> propFlow(name: String): StateFlow<T?> = propFlow[name]
-
-    actual inner class PropertyFlowAccessor {
-        actual inline operator fun <reified T> get(name: String): StateFlow<T?> =
-            typedFlow(name, T::class) as StateFlow<T?>
-
-        actual fun getIntFlow(name: String) = session.getIntFlow(name)
-        actual fun getLongFlow(name: String) = session.getLongFlow(name)
-        actual fun getFloatFlow(name: String) = session.getFloatFlow(name)
-        actual fun getDoubleFlow(name: String) = session.getDoubleFlow(name)
-        actual fun getBooleanFlow(name: String) = session.getBooleanFlow(name)
-        actual fun getStringFlow(name: String) = session.getStringFlow(name)
-        actual fun getNodeFlow(name: String) = session.getNodeFlow(name)
-    }
-
-    actual val logFlow: MutableSharedFlow<Triple<String, Int, String>> get() = session.logFlow
+    actual val logFlow: SharedFlow<Triple<String, Int, String>> get() = session.logFlow
+    actual val eventFlow: SharedFlow<Pair<Int, MPVNode>> get() = session.eventFlow
+    actual val eventPropertyFlow: SharedFlow<String> get() = session.eventPropertyFlow
 
     actual fun addObserver(o: EventObserver) = session.addObserver(o)
 
@@ -300,8 +258,9 @@ actual class MPV(
     }
 
     actual fun close() {
-        destroySession()
+        // event thread first, it could still be setting flows
         nativeDestroy()
+        destroySession()
     }
 
     actual fun setCacheDir(cacheDir: String) {

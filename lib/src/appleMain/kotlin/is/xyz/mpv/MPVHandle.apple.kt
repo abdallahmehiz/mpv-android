@@ -39,13 +39,11 @@ import kotlinx.cinterop.value
 
 internal typealias MpvHandle = CPointer<mpv_handle>
 
-internal fun MpvHandle.command(args: Array<out String>) {
-    memScoped {
-        val argv = allocArray<CPointerVar<ByteVar>>(args.size + 1)
-        args.forEachIndexed { i, arg -> argv[i] = arg.cstr.ptr }
-        argv[args.size] = null
-        mpv_command(this@command, argv)
-    }
+internal fun MpvHandle.command(args: Array<out String>): Int = memScoped {
+    val argv = allocArray<CPointerVar<ByteVar>>(args.size + 1)
+    args.forEachIndexed { i, arg -> argv[i] = arg.cstr.ptr }
+    argv[args.size] = null
+    mpv_command(this@command, argv)
 }
 
 /** Runs a command and passes its result to [block], or returns null if the command failed. */
@@ -117,10 +115,8 @@ private inline fun <reified T : CVariable> MpvHandle.setProperty(
     name: String,
     format: mpv_format,
     write: MemScope.(T) -> Unit,
-) {
-    memScoped {
-        val data = alloc<T>()
-        write(data)
-        mpv_set_property(this@setProperty, name, format, data.ptr)
-    }
+): Int = memScoped {
+    val data = alloc<T>()
+    write(data)
+    mpv_set_property(this@setProperty, name, format, data.ptr)
 }

@@ -26,7 +26,7 @@ extern "C" {
     jni_func(void, nativeInit);
     jni_func(void, nativeDestroy);
 
-    jni_func(void, command, jobjectArray jarray);
+    jni_func(jint, command, jobjectArray jarray);
     jni_func(jobject, commandNode, jobjectArray jarray);
 };
 
@@ -113,7 +113,7 @@ jni_func(void, nativeDestroy) {
     set_context(env, obj, nullptr);
 }
 
-jni_func(void, command, jobjectArray jarray) {
+jni_func(jint, command, jobjectArray jarray) {
     MpvContext *ctx = get_context(env, obj);
     CHECK_CTX(ctx);
 
@@ -128,12 +128,14 @@ jni_func(void, command, jobjectArray jarray) {
         arguments[i] = env->GetStringUTFChars(jstrings[i], NULL);
     }
 
-    mpv_command(ctx->mpv, arguments);
+    int result = mpv_command(ctx->mpv, arguments);
 
     for (int i = 0; i < len; ++i) {
         env->ReleaseStringUTFChars(jstrings[i], arguments[i]);
         env->DeleteLocalRef(jstrings[i]);
     }
+
+    return result;
 }
 
 jni_func(jobject, commandNode, jobjectArray jarray) {

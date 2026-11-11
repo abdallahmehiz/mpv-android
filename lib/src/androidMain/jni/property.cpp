@@ -13,17 +13,21 @@ extern "C" {
     jni_func(jint, setOptionString, jstring option, jstring value);
 
     jni_func(jobject, getPropertyInt, jstring property);
-    jni_func(void, setPropertyInt, jstring property, jint value);
+    jni_func(jint, setPropertyInt, jstring property, jint value);
+    jni_func(jobject, getPropertyLong, jstring property);
+    jni_func(jint, setPropertyLong, jstring property, jlong value);
     jni_func(jobject, getPropertyDouble, jstring property);
-    jni_func(void, setPropertyDouble, jstring property, jdouble value);
+    jni_func(jint, setPropertyDouble, jstring property, jdouble value);
     jni_func(jobject, getPropertyBoolean, jstring property);
-    jni_func(void, setPropertyBoolean, jstring property, jboolean value);
+    jni_func(jint, setPropertyBoolean, jstring property, jboolean value);
     jni_func(jstring, getPropertyString, jstring jproperty);
-    jni_func(void, setPropertyString, jstring jproperty, jstring jvalue);
+    jni_func(jint, setPropertyString, jstring jproperty, jstring jvalue);
     jni_func(jobject, getPropertyNode, jstring jproperty);
-    jni_func(void, setPropertyNode, jstring jproperty, jobject jnode);
+    jni_func(jint, setPropertyNode, jstring jproperty, jobject jnode);
 
-    jni_func(void, observeProperty, jstring property, jint format);
+    jni_func(jint, observeProperty, jstring property, jint format);
+
+    jni_func(jstring, errorString, jint error);
 }
 
 jni_func(jint, setOptionString, jstring joption, jstring jvalue) {
@@ -77,6 +81,14 @@ jni_func(jobject, getPropertyInt, jstring jproperty) {
     return env->NewObject(java_Integer, java_Integer_init, (jint)value);
 }
 
+jni_func(jobject, getPropertyLong, jstring jproperty) {
+    MpvContext *ctx = get_context(env, obj);
+    int64_t value = 0;
+    if (common_get_property(env, ctx, jproperty, MPV_FORMAT_INT64, &value) < 0)
+        return NULL;
+    return env->NewObject(java_Long, java_Long_init, (jlong)value);
+}
+
 jni_func(jobject, getPropertyDouble, jstring jproperty) {
     MpvContext *ctx = get_context(env, obj);
     double value = 0;
@@ -103,29 +115,36 @@ jni_func(jstring, getPropertyString, jstring jproperty) {
     return jvalue;
 }
 
-jni_func(void, setPropertyInt, jstring jproperty, jint jvalue) {
+jni_func(jint, setPropertyInt, jstring jproperty, jint jvalue) {
     MpvContext *ctx = get_context(env, obj);
     int64_t value = static_cast<int64_t>(jvalue);
-    common_set_property(env, ctx, jproperty, MPV_FORMAT_INT64, &value);
+    return common_set_property(env, ctx, jproperty, MPV_FORMAT_INT64, &value);
 }
 
-jni_func(void, setPropertyDouble, jstring jproperty, jdouble jvalue) {
+jni_func(jint, setPropertyLong, jstring jproperty, jlong jvalue) {
+    MpvContext *ctx = get_context(env, obj);
+    int64_t value = static_cast<int64_t>(jvalue);
+    return common_set_property(env, ctx, jproperty, MPV_FORMAT_INT64, &value);
+}
+
+jni_func(jint, setPropertyDouble, jstring jproperty, jdouble jvalue) {
     MpvContext *ctx = get_context(env, obj);
     double value = static_cast<double>(jvalue);
-    common_set_property(env, ctx, jproperty, MPV_FORMAT_DOUBLE, &value);
+    return common_set_property(env, ctx, jproperty, MPV_FORMAT_DOUBLE, &value);
 }
 
-jni_func(void, setPropertyBoolean, jstring jproperty, jboolean jvalue) {
+jni_func(jint, setPropertyBoolean, jstring jproperty, jboolean jvalue) {
     MpvContext *ctx = get_context(env, obj);
     int value = jvalue == JNI_TRUE ? 1 : 0;
-    common_set_property(env, ctx, jproperty, MPV_FORMAT_FLAG, &value);
+    return common_set_property(env, ctx, jproperty, MPV_FORMAT_FLAG, &value);
 }
 
-jni_func(void, setPropertyString, jstring jproperty, jstring jvalue) {
+jni_func(jint, setPropertyString, jstring jproperty, jstring jvalue) {
     MpvContext *ctx = get_context(env, obj);
     const char *value = env->GetStringUTFChars(jvalue, NULL);
-    common_set_property(env, ctx, jproperty, MPV_FORMAT_STRING, &value);
+    int result = common_set_property(env, ctx, jproperty, MPV_FORMAT_STRING, &value);
     env->ReleaseStringUTFChars(jvalue, value);
+    return result;
 }
 
 jni_func(jobject, getPropertyNode, jstring jproperty) {
@@ -147,7 +166,7 @@ jni_func(jobject, getPropertyNode, jstring jproperty) {
     return jresult;
 }
 
-jni_func(void, setPropertyNode, jstring jproperty, jobject jnode) {
+jni_func(jint, setPropertyNode, jstring jproperty, jobject jnode) {
     MpvContext *ctx = get_context(env, obj);
     CHECK_CTX(ctx);
 
@@ -157,8 +176,9 @@ jni_func(void, setPropertyNode, jstring jproperty, jobject jnode) {
     memset(&node, 0, sizeof(node));
     int parse_error = jobject_to_mpv_node(env, jnode, &node);
 
+    int result = MPV_ERROR_INVALID_PARAMETER;
     if (parse_error == 0) {
-        int result = mpv_set_property(ctx->mpv, property, MPV_FORMAT_NODE, &node);
+        result = mpv_set_property(ctx->mpv, property, MPV_FORMAT_NODE, &node);
         free_mpv_node(&node);
 
         if (result < 0)
@@ -166,9 +186,10 @@ jni_func(void, setPropertyNode, jstring jproperty, jobject jnode) {
     }
 
     env->ReleaseStringUTFChars(jproperty, property);
+    return result;
 }
 
-jni_func(void, observeProperty, jstring property, jint format) {
+jni_func(jint, observeProperty, jstring property, jint format) {
     MpvContext *ctx = get_context(env, obj);
     CHECK_CTX(ctx);
     const char *prop = env->GetStringUTFChars(property, NULL);
@@ -176,4 +197,9 @@ jni_func(void, observeProperty, jstring property, jint format) {
     if (result < 0)
         ALOGE("mpv_observe_property(%s) format %d returned error %s", prop, format, mpv_error_string(result));
     env->ReleaseStringUTFChars(property, prop);
+    return result;
+}
+
+jni_func(jstring, errorString, jint error) {
+    return env->NewStringUTF(mpv_error_string(error));
 }

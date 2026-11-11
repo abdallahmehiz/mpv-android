@@ -25,6 +25,8 @@ void init_methods_cache(JNIEnv *env)
     #define FIND_CLASS(name) reinterpret_cast<jclass>(env->NewGlobalRef(env->FindClass(name)))
     java_Integer = FIND_CLASS("java/lang/Integer");
     java_Integer_init = env->GetMethodID(java_Integer, "<init>", "(I)V");
+    java_Long = FIND_CLASS("java/lang/Long");
+    java_Long_init = env->GetMethodID(java_Long, "<init>", "(J)V");
     java_Double = FIND_CLASS("java/lang/Double");
     java_Double_init = env->GetMethodID(java_Double, "<init>", "(D)V");
     java_Boolean = FIND_CLASS("java/lang/Boolean");

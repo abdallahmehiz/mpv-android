@@ -1,15 +1,7 @@
 package `is`.xyz.mpv
 
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlin.reflect.KProperty
+import kotlinx.coroutines.flow.SharedFlow
 
-/**
- * A single libmpv instance.
- *
- * Constructing one is platform specific (Android needs a `Context`), as is attaching it to
- * something to render into. Everything else is shared between platforms.
- */
 @Suppress("unused")
 expect class MPV {
     val isInitialized: Boolean
@@ -19,68 +11,40 @@ expect class MPV {
 
     fun detachSurface()
 
-    fun command(vararg cmd: String)
+    fun command(vararg cmd: String): Int
     fun commandNode(vararg cmd: String): MPVNode?
 
     fun setOptionString(name: String, value: String): Int
 
     fun getPropertyInt(property: String): Int?
-    fun setPropertyInt(property: String, value: Int)
+    fun setPropertyInt(property: String, value: Int): Int
     fun getPropertyDouble(property: String): Double?
-    fun setPropertyDouble(property: String, value: Double)
+    fun setPropertyDouble(property: String, value: Double): Int
     fun getPropertyBoolean(property: String): Boolean?
-    fun setPropertyBoolean(property: String, value: Boolean)
+    fun setPropertyBoolean(property: String, value: Boolean): Int
     fun getPropertyString(property: String): String?
-    fun setPropertyString(property: String, value: String)
+    fun setPropertyString(property: String, value: String): Int
     fun getPropertyNode(property: String): MPVNode?
-    fun setPropertyNode(property: String, node: MPVNode)
+    fun setPropertyNode(property: String, node: MPVNode): Int
 
     fun getPropertyFloat(property: String): Float?
-    fun setPropertyFloat(property: String, value: Float)
+    fun setPropertyFloat(property: String, value: Float): Int
 
     fun getPropertyLong(property: String): Long?
-    fun setPropertyLong(property: String, value: Long)
+    fun setPropertyLong(property: String, value: Long): Int
 
-    fun observeProperty(property: String, format: Int)
+    fun observeProperty(property: String, format: Int): Int
+
+    fun errorString(error: Int): String
 
     fun initSession()
     fun destroySession()
 
-    val prop: PropertyAccessor
-    val propFlow: PropertyFlowAccessor
+    internal val session: MPVSession
 
-    inner class PropertyAccessor {
-        inline operator fun <reified T> get(name: String): T?
-        inline operator fun <reified T> set(name: String, value: T)
-    }
-
-    inner class PropertyDelegate<T>(
-        name: String,
-        getter: (String) -> T?,
-        setter: (String, T) -> Unit
-    ) {
-        operator fun getValue(thisRef: Any?, property: KProperty<*>): T?
-        operator fun setValue(thisRef: Any?, property: KProperty<*>, value: T?)
-    }
-
-    inline fun <reified T> prop(name: String): PropertyDelegate<T>
-    inline fun <reified T> prop(name: String, value: T)
-
-    inline fun <reified T> propFlow(name: String): StateFlow<T?>
-
-    inner class PropertyFlowAccessor {
-        inline operator fun <reified T> get(name: String): StateFlow<T?>
-
-        fun getIntFlow(name: String): StateFlow<Int?>
-        fun getLongFlow(name: String): StateFlow<Long?>
-        fun getFloatFlow(name: String): StateFlow<Float?>
-        fun getDoubleFlow(name: String): StateFlow<Double?>
-        fun getBooleanFlow(name: String): StateFlow<Boolean?>
-        fun getStringFlow(name: String): StateFlow<String?>
-        fun getNodeFlow(name: String): StateFlow<MPVNode?>
-    }
-
-    val logFlow: MutableSharedFlow<Triple<String, Int, String>>
+    val logFlow: SharedFlow<Triple<String, Int, String>>
+    val eventFlow: SharedFlow<Pair<Int, MPVNode>>
+    val eventPropertyFlow: SharedFlow<String>
 
     fun addObserver(o: EventObserver)
     fun removeObserver(o: EventObserver)
