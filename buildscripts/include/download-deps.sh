@@ -82,6 +82,13 @@ if [ ! -d curl ]; then
 		tar -xz -C curl --strip-components=1
 fi
 
+# rubberband
+if [ ! -d rubberband ]; then
+	mkdir rubberband
+	$WGET https://github.com/breakfastquay/rubberband/archive/refs/tags/v${v_rubberband}.tar.gz -O - | \
+		tar -xz -C rubberband --strip-components=1
+fi
+
 # mpv
 [ ! -d mpv ] && git clone --depth 1 https://github.com/mpv-player/mpv
 
