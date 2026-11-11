@@ -1,3 +1,1 @@
 include(":lib")
-
-include(":app")
