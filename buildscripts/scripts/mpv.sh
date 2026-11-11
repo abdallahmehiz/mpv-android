@@ -29,7 +29,7 @@ fi
 
 meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
 	"${platform_args[@]}" \
-	-Diconv=disabled -Dlua=enabled \
+	-Diconv=disabled -D{lua,libcurl}=enabled \
 	-Dlibmpv=true -Dcplayer=false \
 	-Dmanpage-build=disabled
 

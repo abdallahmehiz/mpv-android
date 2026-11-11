@@ -52,10 +52,13 @@ args=(
 	# disable unneeded parts
 	--disable-{stripping,doc,programs}
 	# to keep the build lean we disable some feature quite aggressively:
+	# - muxers, encoders: mpv-android does not have any way to use these
 	# - devices: no practical use on Android
-	--disable-{encoders,devices}
+	--disable-{muxers,encoders,devices}
 	# useful to taking screenshots
 	--enable-encoder=mjpeg,png
+	# useful for the `dump-cache` command
+	--enable-muxer=mov,matroska,mpegts
 )
 ../configure "${args[@]}"
 

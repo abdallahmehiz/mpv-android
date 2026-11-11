@@ -55,14 +55,52 @@ object Utils {
         return true
     }
 
+    /** Write the 'fonts.conf' for fontconfig. */
+    private fun writeFontsConf(context: Context, configFile: File) {
+        val parts = mutableListOf(
+            "<fontconfig>",
+            // Android system fonts reside here
+            "<dir>/system/fonts/</dir>",
+            "<dir>/product/fonts/</dir>",
+            // Point fontconfig to the right cache path so that caching works
+            "<cachedir>${context.cacheDir.path}</cachedir>",
+            // Conveniently there is *no* Java API to query the system default fonts, but we can
+            // manually specify the font families we know Android uses and provides by default.
+            // (compare to 60-latin.conf shipped with fontconfig)
+            "<alias><family>serif</family>",
+            "<prefer><family>Noto Serif</family></prefer>",
+            "</alias>",
+            "<alias><family>sans-serif</family>",
+            "<prefer>",
+            "<family>Roboto</family>",
+            "<family>Noto Sans</family>", // other languages
+            "</prefer>",
+            "</alias>",
+            "<alias><family>monospace</family>",
+            "<prefer><family>Droid Sans Mono</family></prefer>",
+            "</alias>",
+            "</fontconfig>"
+        )
+        try {
+            configFile.writeText(parts.joinToString("\n"))
+        } catch (e: IOException) {
+            Log.w(TAG, "Failed to write fonts.conf", e)
+        }
+    }
+
     fun copyAssets(context: Context) {
         val assetManager = context.assets
-        val files = arrayOf("subfont.ttf", "cacert.pem")
+        val files = arrayOf("cacert.pem")
         val configDir = context.filesDir.path
 
         for (name in files) {
             copyAssetFile(assetManager, name, File("$configDir/$name"))
         }
+
+        // we used to ship this, but it's no longer needed
+        File("$configDir/subfont.ttf").delete()
+
+        writeFontsConf(context, File("$configDir/fonts.conf"))
     }
 
     fun findRealPath(fd: Int): String? {
@@ -208,6 +246,24 @@ object Utils {
         return if (view.isVisible) 1 else 0
     }
 
+    /**
+     * Constructs a memory:// URL with an M3U playlist from the given entries
+     */
+    fun makeMemoryPlaylist(entries: Iterable<String>): String {
+        val lines = mutableListOf("memory://#EXTM3U")
+        val badChars = listOf("\r", "\n", "\u0000")
+        for (entry in entries) {
+            if (entry.isEmpty())
+                continue
+            if (entry.startsWith("#"))
+                throw IllegalArgumentException("Playlist entry cannot start with #")
+            if (entry.findAnyOf(badChars) != null)
+                throw IllegalArgumentException("Playlist entry contains illegal character")
+            lines += entry
+        }
+        return lines.joinToString("\n", "", "\n")
+    }
+
     class AudioMetadata {
         var mediaTitle: String? = null
             private set
@@ -250,8 +306,8 @@ object Utils {
             val albumEmpty = mediaAlbum.isNullOrEmpty()
             return when {
                 !artistEmpty && !albumEmpty -> "$mediaArtist / $mediaAlbum"
-                !artistEmpty -> mediaAlbum
-                !albumEmpty -> mediaArtist
+                !artistEmpty -> mediaArtist
+                !albumEmpty -> mediaAlbum
                 else -> null
             }
         }
@@ -298,7 +354,7 @@ object Utils {
     // FFmpeg/mpv could possibly read
     val MEDIA_EXTENSIONS = setOf(
             /* Playlist */
-            "cue", "m3u", "m3u8", "pls", "vlc",
+            "cue", "m3u", "m3u8", "pls", "strm", "vlc",
 
             /* Audio */
             "3ga", "3ga2", "a52", "aac", "ac3", "ac4", "adt", "adts", "aif", "aifc", "aiff", "alac",

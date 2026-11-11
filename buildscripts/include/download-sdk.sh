@@ -11,10 +11,10 @@ if [ "$os" == "linux" ]; then
 	if [ $IN_CI -eq 0 ]; then
 		if hash yum &>/dev/null; then
 			sudo yum install autoconf pkgconfig libtool ninja-build \
-				unzip wget meson nasm
+				unzip wget meson gperf nasm
 		elif apt-get -v &>/dev/null; then
 			sudo apt-get install autoconf pkg-config libtool ninja-build \
-				unzip wget meson nasm
+				unzip wget meson gperf nasm
 		else
 			echo "Note: dependencies were not installed, you have to do that manually."
 		fi
@@ -25,7 +25,7 @@ if [ "$os" == "linux" ]; then
 		hash yum &>/dev/null && \
 			echo "Install it using e.g. sudo yum install java-latest-openjdk-devel"
 		apt-get -v &>/dev/null && \
-			echo "Install it using e.g. sudo apt-get install default-jre-headless"
+			echo "Install it using e.g. sudo apt-get install default-jdk-headless"
 		exit 255
 	fi
 
@@ -38,7 +38,7 @@ elif [ "$os" == "mac" ]; then
 		fi
 		brew install \
 			automake autoconf libtool pkg-config \
-			coreutils gnu-sed wget meson ninja nasm
+			coreutils gnu-sed wget meson ninja gperf nasm
 	fi
 	if ! javac -version &>/dev/null; then
 		echo "Error: missing Java Development Kit. Install it manually."

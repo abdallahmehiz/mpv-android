@@ -1,1 +1,0 @@
--keep,allowoptimization class is.xyz.mpv.** { *; }

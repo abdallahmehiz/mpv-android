@@ -15,8 +15,8 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: temurin
@@ -24,20 +24,20 @@ jobs:
       - name: Export env vars
         run: buildscripts/include/ci.sh export >>$GITHUB_ENV
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: gh-cache/
           key: "prefix-${{ hashFiles('buildscripts/**.sh') }}"
           restore-keys: "prefix-"
           enableCrossOsArchive: true
 
-      - name: Install deps
+      - name: Install packages
         run: |
           sudo apt-get update
-          sudo apt-get install autoconf pkg-config libtool ninja-build python3-pip
+          sudo apt-get install autoconf pkgconf libtool ninja-build python3-pip gperf nasm
           sudo pip3 install meson
 
-      - name: Download deps
+      - name: Download or build deps
         run: |
           mkdir -p "$CACHE_FOLDER"
           buildscripts/include/ci.sh install
@@ -54,7 +54,7 @@ jobs:
           ./buildall.sh --arch ${{ matrix.architecture }} mpv
           ./buildall.sh -n
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mpv-lib-${{ matrix.architecture }}
           path: lib/build/outputs/aar/lib.aar
