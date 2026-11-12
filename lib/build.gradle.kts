@@ -7,7 +7,7 @@ plugins {
     id("com.vanniktech.maven.publish")
 }
 
-version = "0.1.12"
+version = "0.2"
 group = "io.github.abdallahmehiz"
 
 // libmpv's public headers, from the mpv checkout of buildscripts
