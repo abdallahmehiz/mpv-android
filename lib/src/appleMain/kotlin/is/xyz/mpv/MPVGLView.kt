@@ -61,13 +61,8 @@ class MPVGLView(frame: CValue<CGRect>) :
 
     constructor() : this(CGRectMake(0.0, 0.0, 0.0, 0.0))
 
-    var mpv: MPV? = null
-        set(value) {
-            if (field === value) return
-            detach()
-            field = value
-            attach()
-        }
+    /** Created on first use, so a view that never plays starts no player. */
+    val mpv by lazy { MPV() }
 
     private var renderContext: CPointer<mpv_render_context>? = null
     private var selfRef: StableRef<MPVGLView>? = null
@@ -79,8 +74,7 @@ class MPVGLView(frame: CValue<CGRect>) :
     }
 
     private fun attach() {
-        val mpv = mpv
-        if (renderContext != null || mpv?.isInitialized != true) return
+        if (renderContext != null || !mpv.isInitialized) return
         EAGLContext.setCurrentContext(context)
 
         renderContext = memScoped {
@@ -106,7 +100,7 @@ class MPVGLView(frame: CValue<CGRect>) :
 
     private fun detach() {
         val renderContext = renderContext ?: return
-        mpv?.takeIf { it.isInitialized }?.setPropertyString("vo", "null")
+        if (mpv.isInitialized) mpv.setPropertyString("vo", "null")
 
         EAGLContext.setCurrentContext(context)
         // after this returns the update callback can't be running anymore

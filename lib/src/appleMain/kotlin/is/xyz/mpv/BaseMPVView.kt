@@ -19,13 +19,8 @@ class BaseMPVView(frame: CValue<CGRect>) : UIView(frame) {
 
     val metalLayer = CAMetalLayer()
 
-    var mpv: MPV? = null
-        set(value) {
-            if (field === value) return
-            detach()
-            field = value
-            attach()
-        }
+    /** Created on first use, so a view that never plays starts no player. */
+    val mpv by lazy { MPV() }
 
     private var voInUse: String = "gpu"
     private var attached = false
@@ -40,7 +35,7 @@ class BaseMPVView(frame: CValue<CGRect>) : UIView(frame) {
      */
     fun setVo(vo: String) {
         voInUse = vo
-        mpv?.setOptionString("vo", vo)
+        mpv.setOptionString("vo", vo)
     }
 
     override fun layoutSubviews() {
@@ -59,8 +54,7 @@ class BaseMPVView(frame: CValue<CGRect>) : UIView(frame) {
     }
 
     private fun attach() {
-        val mpv = mpv
-        if (attached || window == null || mpv?.isInitialized != true) return
+        if (attached || window == null || !mpv.isInitialized) return
         mpv.attachSurface(metalLayer)
         mpv.setOptionString("force-window", "yes")
         mpv.setPropertyString("vo", voInUse)
@@ -70,8 +64,7 @@ class BaseMPVView(frame: CValue<CGRect>) : UIView(frame) {
     private fun detach() {
         if (!attached) return
         attached = false
-        val mpv = mpv
-        if (mpv?.isInitialized != true) return
+        if (!mpv.isInitialized) return
         mpv.setPropertyString("vo", "null")
         mpv.setPropertyString("force-window", "no")
         mpv.detachSurface()
