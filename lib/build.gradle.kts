@@ -51,7 +51,7 @@ kotlin {
     android {
         namespace = "is.xyz.mpv"
         compileSdk = 36
-        minSdk = 21
+        minSdk = 24
 
         // ships cacert.pem and subfont.ttf from src/androidMain/assets
         androidResources { enable = true }

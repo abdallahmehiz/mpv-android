@@ -47,7 +47,7 @@ loadarch () {
 	fi
 	export target_os=android
 
-	local apilvl=23
+	local apilvl=24
 	# ndk_triple: the target triple
 	local cc_triple # how the compilers are actually prefixed
 	if [[ "$1" == "armv7l" ]]; then

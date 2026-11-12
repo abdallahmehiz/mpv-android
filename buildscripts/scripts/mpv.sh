@@ -13,6 +13,15 @@ else
 	exit 255
 fi
 
+mkdir -p "$prefix_dir"/lib/pkgconfig
+cat >"$prefix_dir"/lib/pkgconfig/vulkan.pc <<"END"
+Name: Vulkan
+Description:
+Version: 1.3.275
+Libs: -lvulkan
+Cflags:
+END
+
 unset CC CXX # meson wants these unset
 
 if [ "$target_os" == "ios" ]; then
@@ -29,7 +38,7 @@ fi
 
 meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
 	"${platform_args[@]}" \
-	-Diconv=disabled -D{lua,libcurl,rubberband}=enabled \
+	-Diconv=disabled -D{lua,libcurl,rubberband,vulkan}=enabled \
 	-Dlibmpv=true -Dcplayer=false \
 	-Dmanpage-build=disabled
 
