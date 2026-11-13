@@ -25,6 +25,12 @@ internal class MPVSession(private val mpv: MPV) {
     private fun statesOf(name: String): List<PropertyState> =
         synchronized(statesLock) { states[name] } ?: emptyList()
 
+    // properties whose last read failed. mpv only re-checks a property on the events tied to it,
+    // so one that comes back without such an event (e.g. hwdec-current after a decoder reinit
+    // that didn't change the output format) is never notified again. these get re-read on every event.
+    private val unavailableLock = SynchronizedObject()
+    private val unavailable = HashSet<String>()
+
     private val observersLock = SynchronizedObject()
     private val observers: MutableList<MPV.EventObserver> = ArrayList()
     private val logObserversLock = SynchronizedObject()
@@ -53,6 +59,7 @@ internal class MPVSession(private val mpv: MPV) {
     fun destroySession() {
         val all = synchronized(statesLock) { states.values.flatten() }
         for (state in all) state.flow.value = state.default
+        synchronized(unavailableLock) { unavailable.clear() }
     }
 
     fun stateFlow(name: String, type: KClass<*>, default: Any?): StateFlow<Any?> {
@@ -77,7 +84,25 @@ internal class MPVSession(private val mpv: MPV) {
     }
 
     private fun update(name: String, type: KClass<*>, value: Any) {
+        synchronized(unavailableLock) { unavailable.remove(name) }
         for (state in statesOf(name)) if (state.type == type) state.flow.value = value
+    }
+
+    private fun refresh(property: String) {
+        var missing = false
+        for (state in statesOf(property)) {
+            val value = mpv.getTypedProperty(property, state.type)
+            if (value == null) missing = true
+            state.flow.value = value ?: state.default
+        }
+        synchronized(unavailableLock) {
+            if (missing) unavailable.add(property) else unavailable.remove(property)
+        }
+    }
+
+    private fun refreshUnavailable() {
+        val pending = synchronized(unavailableLock) { unavailable.toList() }
+        for (property in pending) refresh(property)
     }
 
     fun addObserver(o: MPV.EventObserver) {
@@ -132,13 +157,12 @@ internal class MPVSession(private val mpv: MPV) {
     fun eventProperty(property: String) {
         forEachObserver { it.eventProperty(property) }
         // no value means it became unavailable, so read it again
-        for (state in statesOf(property)) {
-            state.flow.value = mpv.getTypedProperty(property, state.type) ?: state.default
-        }
+        refresh(property)
         _eventPropertyFlow.tryEmit(property)
     }
 
     fun event(eventId: Int, data: MPVNode) {
+        refreshUnavailable()
         forEachObserver { it.event(eventId, data) }
         _eventFlow.tryEmit(eventId to data)
     }
